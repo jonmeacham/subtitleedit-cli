@@ -1,0 +1,22 @@
+name: Build and smoke-test seconv image
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  docker-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (with upstream submodule)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build image
+        run: ./scripts/build-docker.sh
+
+      - name: Smoke test
+        run: ./scripts/smoke-test.sh

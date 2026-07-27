@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "seconv": {
-      "commandName": "Project",
-      "commandLineArgs": "a.srt ebustl"
-    }
-  }
-}

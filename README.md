@@ -1,62 +1,95 @@
-# Subtitle Edit cli 
+# subtitleedit-cli
 
-.NET 8 console subtitle converter for Windows, Linux, and Mac.
+Docker / packaging home for **upstream** [Subtitle Edit](https://github.com/SubtitleEdit/subtitleedit) `seconv` — the headless subtitle converter.
 
-Code is based on SE 3.6.9, but should be updated with new subtitle formats from SE.
+This repository no longer maintains a forked LibSE copy. Format input/output and OCR behavior match the pinned Subtitle Edit commit under [`upstream/`](upstream/). See [UPSTREAM.md](UPSTREAM.md) for the pin.
 
-Imaged based formats/OCR was removed (only Blu-ray sup OCR is supported).
+## What you get
 
-How to compile: `dotnet build seconv.csproj`
+- 380+ subtitle formats (same registry as Subtitle Edit)
+- Container input: Matroska (`.mkv`/`.mks`), MP4, MCC, MXF, transport-stream teletext
+- Image subtitle OCR: Blu-ray `.sup`, VobSub `.sub`/`.idx`, MKV PGS/VobSub, and related paths
+- OCR engines in the default image: **Tesseract** (eng), plus bundled **Latin.db** / **Latin.nocr** for `binaryocr` / `nocr`
+- No GUI dependency
 
-How to run: `./seconv <pattern> <name-of-format-without-spaces> [<optional-parameters>]`.
+Canonical CLI docs live upstream:
 
-E.g.: `./seconv *.sub subrip` - for more info see https://www.nikse.dk/subtitleedit/help#commandline
+- [Command-line reference](https://github.com/SubtitleEdit/subtitleedit/blob/main/docs/reference/command-line.md)
+- [seconv feature overview](https://github.com/SubtitleEdit/subtitleedit/blob/main/docs/features/seconv.md)
 
-This was made due to https://github.com/SubtitleEdit/subtitleedit/issues/3568
+## Prerequisites
 
+- Docker
+- Git submodule initialized:
 
-
----
-
-
-
-## Build and run with Docker
-
-### Prerequisites
-
-#### Install Docker + dotnet 8 SDK
-
-#### Clone repository
-```
-git clone https://github.com/SubtitleEdit/subtitleedit-cli.git
-cd subtitleedit-cli
+```bash
+git submodule update --init --recursive
 ```
 
-### Build
+## Build the image
 
-Reside in the root directory of the repository, then run:    
-```
-docker build -t seconv:1.0 -f docker/Dockerfile .
-```
-
-This is a multi stage build. It first builds the application, then creates the docker image. 
-
-### Run
-
-Run conversion by executing e.g.:   
-```
-docker run --rm -it -v $(pwd)/subtitles:/subtitles seconv:1.0 sample.srt pac
+```bash
+./scripts/build-docker.sh
+# optional: IMAGE_TAG=seconv:1.1 ./scripts/build-docker.sh
 ```
 
-Parameters:
-- -v: Mount local subtitles directory.
-- sample.srt: input file or pattern. E.g. *.srt.
-- pac: output-format. E.g. pac, stl, srt, ass.
+The image is labeled with `org.opencontainers.image.version` (e.g. `v5.1.0-rc16`) and `subtitleedit.upstream.ref` (full commit SHA).
 
+## Run
 
-### License
-`subtitleedit-cli` is licensed under the GNU LESSER GENERAL PUBLIC LICENSE Version 3, 
-so it free to use for commercial software, as long as you don't modify the library itself. 
-LGPL 3.0 allows linking to the library in a way that doesn't require you to open source your own code. 
-This means that if you use libse in your project, you can keep your own code private, 
-as long as you don't modify libse itself.
+```bash
+# Format conversion (write into the mounted /subtitles workdir)
+docker run --rm -v "$PWD/subs:/subtitles" seconv:local \
+  sample.srt webvtt --output-folder:/subtitles --overwrite
+
+# List formats / OCR engines
+docker run --rm seconv:local formats
+docker run --rm seconv:local list-ocr-engines
+
+# VobSub OCR (.idx companion is auto-detected)
+docker run --rm -v "$PWD/subs:/subtitles" seconv:local \
+  movie.sub subrip --ocr-engine:tesseract --ocr-language:eng \
+  --output-folder:/subtitles --overwrite
+
+# Binary OCR with the bundled Latin DB
+docker run --rm -v "$PWD/subs:/subtitles" seconv:local \
+  movie.sub subrip --ocr-engine:binaryocr --ocr-db:/secli/ocr/Latin.db \
+  --output-folder:/subtitles --overwrite
+
+# MKV image/text track
+docker run --rm -v "$PWD/videos:/videos:ro" -v "$PWD/out:/subtitles" seconv:local \
+  "/videos/episode.mkv" subrip --track-number:2 \
+  --ocr-engine:tesseract --ocr-language:eng \
+  --output-folder:/subtitles --overwrite
+```
+Positional `seconv <pattern> <format>` works. Legacy slash options (`/overwrite`, `/ocrdb:…`) are translated by upstream seconv where supported; prefer the modern `--flag` forms.
+
+Bundled OCR databases are under `/secli/ocr/` (`Latin.db`, `Latin.nocr`).
+
+## Smoke tests
+
+```bash
+./scripts/build-docker.sh
+./scripts/smoke-test.sh
+```
+
+## Updating the upstream pin
+
+```bash
+cd upstream
+git fetch
+git checkout <tag-or-commit>   # e.g. v5.1.0
+cd ..
+git add upstream
+# refresh UPSTREAM.md to match, then rebuild
+./scripts/build-docker.sh
+./scripts/smoke-test.sh
+```
+
+## License
+
+`subtitleedit-cli` packaging files in this repo follow [LICENSE](LICENSE). The packaged `seconv` binary and libraries come from upstream Subtitle Edit / LibSE (LGPL); see `upstream/LICENSE` and `/secli/LICENSE` in the image.
+
+## History
+
+Older releases of this project vendored SE 3.6.9-era code with most image OCR removed. That approach could not keep format or VobSub/MKV OCR parity with current Subtitle Edit; see [GAP_ANALYSIS.md](GAP_ANALYSIS.md). This tree packages upstream `seconv` instead.

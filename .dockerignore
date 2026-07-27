@@ -1,0 +1,25 @@
+.git
+**/bin/
+**/obj/
+src/
+docker/subtitles/
+tests/out/
+
+# Upstream content not needed to publish seconv
+upstream/.git
+upstream/docs/
+upstream/tests/
+upstream/installer/
+upstream/Themes/
+upstream/Dictionaries/
+upstream/src/ui/Features/
+upstream/src/ui/Logic/
+upstream/src/ui/Controls/
+upstream/src/ui/Converters/
+upstream/src/ui/Properties/
+upstream/*.sln
+upstream/*.bat
+upstream/appveyor.yml
+upstream/Changelog.txt
+upstream/change-log.txt
+upstream/SubtitleEdit.sln.DotSettings
